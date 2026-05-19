@@ -1,0 +1,26 @@
+src/contexts/ThemeContext.tsx:    throw new Error('useTheme must be used within a ThemeProvider');
+src/contexts/SettingsContext.tsx:    throw new Error('useSettings must be used within a SettingsProvider');
+src/components/Board.tsx:    const game = new Chess(fen);
+src/pages/Match.tsx:  const [game, setGame] = useState(new Chess());
+src/pages/Match.tsx:          const nextGame = new Chess(data.fen);
+src/pages/Match.tsx:        setGame(new Chess(data.fen));
+src/pages/Match.tsx:      const moveSan = new Chess(game.fen()).move({ from, to, promotion: promotion || 'q' })?.san;
+src/pages/Match.tsx:        throw new Error(result.error || 'Move rejected by server');
+src/pages/Practice.tsx:  const [game, setGame] = useState(new Chess());
+src/pages/Practice.tsx:        setGame(new Chess(game.fen()));
+src/pages/Practice.tsx:    const newGame = new Chess();
+src/pages/Practice.tsx:    setGame(new Chess(game.fen()));
+src/pages/Lobby.tsx:          description: `Escrow for new match challenge`,
+src/pages/Store.tsx:  const categories = Array.from(new Set(items.map(i => i.category || 'Legacy')));
+src/pages/Tournaments.tsx:        startTime: new Date(Date.now() + 3600000).toISOString(),
+src/pages/Tournaments.tsx:        startTime: new Date(Date.now() - 600000).toISOString(),
+src/pages/Tournaments.tsx:        startTime: new Date(Date.now() + 86400000).toISOString(),
+src/pages/Tournaments.tsx:                         <span>{Math.max(0, Math.floor((new Date(tournament.startTime).getTime() - Date.now()) / 60000))}m</span>
+src/pages/Wallet.tsx:      if (!res.ok) throw new Error(data.error || 'Transfer failed');
+src/pages/Bounty.tsx:        throw new Error(result.error || 'Failed to create match');
+src/pages/Bounty.tsx:                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{new Date(match.updatedAt?.seconds * 1000).toLocaleDateString()}</p>
+src/pages/Admin.tsx:                          <span className="block text-gray-400">{new Date(m.createdAt?.seconds * 1000).toLocaleTimeString()}</span>
+src/pages/Admin.tsx:                          {t.timestamp?.seconds ? new Date(t.timestamp.seconds * 1000).toLocaleString() : 'Pending...'}
+src/pages/Admin.tsx:                            {selectedUser.createdAt?.seconds ? new Date(selectedUser.createdAt.seconds * 1000).toLocaleDateString() : 'Unknown'}
+src/lib/firebase.ts:export const googleProvider = new GoogleAuthProvider();
+src/lib/firebase.ts:  throw new Error(JSON.stringify(errInfo));

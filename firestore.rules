@@ -1,0 +1,244 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- User Validation ---
+    function isValidUser(data) {
+      return (!data.keys().hasAny(['displayName']) || data.displayName is string)
+        && (!data.keys().hasAny(['email']) || data.email is string)
+        && (!data.keys().hasAny(['photoURL']) || data.photoURL == null || data.photoURL is string)
+        && (!data.keys().hasAny(['bountyCoins']) || data.bountyCoins is number)
+        && (!data.keys().hasAny(['elo']) || data.elo is number)
+        && (!data.keys().hasAny(['lastActive']) || data.lastActive is timestamp)
+        && (!data.keys().hasAny(['isPublicCoins']) || data.isPublicCoins is bool);
+    }
+
+    // --- Economy Validation ---
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['userId', 'amount', 'type', 'timestamp'])
+        && data.keys().size() >= 4
+        && data.userId == request.auth.uid
+        && data.amount is number
+        && data.type in ['win', 'purchase', 'wager', 'transfer_in', 'transfer_out', 'adjustment']
+        && data.timestamp == request.time;
+    }
+
+    // --- Match Validation ---
+    function isValidMatch(data) {
+      return data.keys().hasAll(['playerWhite', 'playerBlack', 'playerWhiteName', 'playerBlackName', 'status', 'fen', 'turn', 'createdAt', 'updatedAt', 'timeControl', 'wagerAmount', 'isRated', 'variant'])
+        && data.playerWhite is string && data.playerWhite.size() <= 128
+        && data.playerBlack is string && data.playerBlack.size() <= 128
+        && data.status in ['pending', 'active', 'completed', 'draw']
+        && data.timeControl in ['bullet', 'blitz', 'rapid', 'classical']
+        && data.wagerAmount is number
+        && data.isRated is bool
+        && data.variant in ['standard', 'chess960']
+        && data.fen is string && data.fen.size() <= 200
+        && data.turn in ['w', 'b']
+        && (data.playerWhiteName is string || data.playerWhiteName == null)
+        && (data.playerBlackName is string || data.playerBlackName == null)
+        && (data.get('players', []).size() <= 2)
+        && (data.get('tournamentId', null) == null || data.get('tournamentId', '') is string)
+        && (data.get('roundNumber', 0) is number);
+    }
+
+    // --- Tournament Validation ---
+    function isValidTournament(data) {
+      return data.keys().hasAll(['title', 'type', 'format', 'status', 'entryFee', 'prizePool', 'startTime'])
+        && data.title is string && data.title.size() <= 100
+        && data.type in ['free', 'bounty']
+        && data.format in ['arena', 'swiss', 'knockout']
+        && data.status in ['upcoming', 'active', 'finished']
+        && data.entryFee is number
+        && data.prizePool is number;
+    }
+
+    function isValidParticipant(data) {
+      return data.keys().hasAll(['userId', 'displayName', 'score', 'joinedAt'])
+        && data.userId == request.auth.uid
+        && data.score is number
+        && data.displayName is string;
+    }
+
+    // --- Move Validation ---
+    function isValidMove(data) {
+      return data.keys().hasAll(['from', 'to', 'san', 'fen', 'moveNumber', 'player', 'timestamp'])
+        && data.keys().size() == 7
+        && data.from is string && data.from.size() <= 10
+        && data.to is string && data.to.size() <= 10
+        && data.san is string && data.san.size() <= 20
+        && data.fen is string && data.fen.size() <= 200
+        && data.moveNumber is int
+        && data.player == request.auth.uid
+        && data.timestamp == request.time;
+    }
+
+    // --- Queue Validation ---
+    function isValidQueueEntry(data) {
+      return data.keys().hasAll(['userId', 'rating', 'isRated', 'wagerAmount', 'timeControl', 'variant', 'timestamp'])
+        && data.keys().size() == 7
+        && data.userId == request.auth.uid
+        && data.rating is number
+        && data.isRated is bool
+        && data.wagerAmount is number
+        && data.timeControl in ['bullet', 'blitz', 'rapid', 'classical']
+        && data.variant in ['standard', 'chess960']
+        && data.timestamp == request.time;
+    }
+
+    // --- Collections ---
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.get('email', '').lower() == 'samuelajak205@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    match /admins/{userId} {
+      allow read: if isSignedIn();
+      allow write: if false; 
+    }
+
+    match /users/{userId} {
+      allow get: if true;
+      allow list: if isSignedIn();
+      allow create: if isOwner(userId) 
+        && incoming().keys().hasAll(['displayName', 'email', 'createdAt', 'bountyCoins', 'elo', 'isPublicCoins'])
+        && incoming().createdAt == request.time
+        && (incoming().bountyCoins == 0 || isAdmin())
+        && (incoming().elo == 1200 || isAdmin())
+        && isValidUser(incoming());
+      allow update: if (isOwner(userId) || isAdmin()) 
+        && isValidUser(incoming())
+        && (isOwner(userId) ? (
+          (!incoming().keys().hasAny(['createdAt']) || incoming().createdAt == existing().createdAt) &&
+          (!incoming().keys().hasAny(['elo']) || incoming().elo == existing().elo)
+        ) : true);
+    }
+
+    match /messages/{messageId} {
+      allow read: if isSignedIn() && (resource.data.fromId == request.auth.uid || resource.data.toId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().fromId == request.auth.uid && (
+        incoming().keys().hasAll(['fromId', 'toId', 'content', 'timestamp']) &&
+        incoming().content is string && incoming().content.size() <= 1000 &&
+        incoming().timestamp == request.time
+      );
+    }
+
+    match /matches/{matchId}/chat/{messageId} {
+      allow read: if isSignedIn() && (
+        get(/databases/$(database)/documents/matches/$(matchId)).data.playerWhite == request.auth.uid ||
+        get(/databases/$(database)/documents/matches/$(matchId)).data.playerBlack == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isSignedIn() && (
+        get(/databases/$(database)/documents/matches/$(matchId)).data.playerWhite == request.auth.uid ||
+        get(/databases/$(database)/documents/matches/$(matchId)).data.playerBlack == request.auth.uid
+      ) && incoming().fromId == request.auth.uid 
+        && incoming().keys().hasAll(['fromId', 'fromName', 'content', 'timestamp'])
+        && incoming().timestamp == request.time;
+    }
+
+    match /transactions/{txnId} {
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+    }
+
+    match /store_items/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin(); // Allows seeding from the specified admin email
+    }
+
+    match /matchmaking_queue/{userId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /matches/{matchId} {
+      // Identity check: user must be one of the players to read/write details
+      function isPlayer() {
+        return isSignedIn() && (request.auth.uid == existing().playerWhite || request.auth.uid == existing().playerBlack);
+      }
+
+      // Allow listing games that are open for joining (pending), active for spectating, or games you are in (history)
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.status in ['pending', 'active'] || 
+        (resource.data.get('players', []) is list && request.auth.uid in resource.data.players)
+      );
+      
+      allow get: if true; // Allow anyone to see a match if they have the link (for spectating or joining)
+      
+      allow create: if isSignedIn() 
+        && isValidMatch(incoming())
+        && incoming().playerWhite == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn() && (
+        // Action: Join as black
+        (existing().status == 'pending' && (existing().playerBlack == 'Searching...') && incoming().playerBlack == request.auth.uid && incoming().status == 'active'
+          && incoming().diff(existing()).affectedKeys().hasOnly(['playerBlack', 'playerBlackName', 'status', 'updatedAt']))
+      ) && incoming().updatedAt == request.time;
+    }
+
+    match /matches/{matchId}/moves/{moveId} {
+      function canInteractWithMoves() {
+        return get(/databases/$(database)/documents/matches/$(matchId)).data.playerWhite == request.auth.uid 
+            || get(/databases/$(database)/documents/matches/$(matchId)).data.playerBlack == request.auth.uid;
+      }
+
+      allow read: if true;
+      allow create: if isSignedIn() && canInteractWithMoves() && isValidMove(incoming());
+    }
+
+    match /tournaments/{tournamentId} {
+      allow read: if true;
+      allow write: if isSignedIn(); // Simplified for demo/seeding, in production would be isAdmin()
+    }
+
+    match /tournaments/{tournamentId}/participants/{userId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isOwner(userId) && isValidParticipant(incoming());
+      allow update: if isSignedIn() && (isOwner(userId) || isAdmin());
+    }
+
+    match /withdrawals/{withdrawalId} {
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isAdmin();
+    }
+  }
+}

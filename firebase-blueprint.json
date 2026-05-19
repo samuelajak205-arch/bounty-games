@@ -1,0 +1,178 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Public profile information for a player.",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "email": { "type": "string" },
+        "bountyCoins": { "type": "number", "description": "Balance in virtual currency" },
+        "totalBountyWon": { "type": "number", "description": "Total coins won in bounty matches" },
+        "totalBountyLost": { "type": "number", "description": "Total coins lost in bounty matches" },
+        "elo": { "type": "number", "description": "Chess skill rating" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["displayName", "email", "createdAt", "bountyCoins", "elo"]
+    },
+    "Transaction": {
+      "title": "Token Transaction",
+      "description": "Record of coin movement.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["win", "purchase", "wager"] },
+        "description": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "type", "timestamp"]
+    },
+    "StoreItem": {
+      "title": "Store Item",
+      "description": "Digital goods available for purchase.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "category": { "type": "string" }
+      },
+      "required": ["name", "price"]
+    },
+    "QueueEntry": {
+      "title": "Matchmaking Queue Entry",
+      "description": "Represents a player waiting for a match.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "rating": { "type": "number" },
+        "isRated": { "type": "boolean" },
+        "wagerAmount": { "type": "number" },
+        "timeControl": { "type": "string" },
+        "variant": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "rating", "isRated", "wagerAmount", "timeControl", "variant", "timestamp"]
+    },
+    "Match": {
+      "title": "Chess Match",
+      "description": "Represents a single game between two players or against AI.",
+      "type": "object",
+      "properties": {
+        "playerWhite": { "type": "string", "description": "UID of the white player" },
+        "playerBlack": { "type": "string", "description": "UID of the black player or 'AI'" },
+        "playerWhiteName": { "type": "string" },
+        "playerBlackName": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "active", "completed", "draw"] },
+        "timeControl": { "type": "string", "enum": ["bullet", "blitz", "rapid", "classical"] },
+        "wagerAmount": { "type": "number" },
+        "isRated": { "type": "boolean" },
+        "variant": { "type": "string", "enum": ["standard", "chess960"] },
+        "fen": { "type": "string" },
+        "turn": { "type": "string", "enum": ["w", "b"] },
+        "winner": { "type": "string" },
+        "tournamentId": { "type": "string", "description": "Optional tournament ID" },
+        "roundNumber": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["playerWhite", "status", "fen", "turn", "createdAt", "updatedAt", "timeControl", "wagerAmount", "isRated", "variant"]
+    },
+    "Tournament": {
+      "title": "Chess Tournament",
+      "description": "A structured competition with multiple rounds.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["free", "bounty"] },
+        "format": { "type": "string", "enum": ["arena", "swiss", "knockout"] },
+        "status": { "type": "string", "enum": ["upcoming", "active", "finished"] },
+        "timeControl": { "type": "string" },
+        "entryFee": { "type": "number" },
+        "prizePool": { "type": "number" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "playerCount": { "type": "number" },
+        "maxPlayers": { "type": "number" }
+      },
+      "required": ["title", "type", "format", "status", "entryFee", "prizePool", "startTime"]
+    },
+    "TournamentParticipant": {
+      "title": "Tournament Participant",
+      "description": "User registration for a tournament.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "rating": { "type": "number" },
+        "score": { "type": "number" },
+        "rank": { "type": "number" },
+        "status": { "type": "string", "enum": ["registered", "active", "eliminated"] },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "score", "joinedAt"]
+    },
+    "Move": {
+      "title": "Chess Move",
+      "description": "Indicates a specific move made in a match.",
+      "type": "object",
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "san": { "type": "string" },
+        "fen": { "type": "string" },
+        "moveNumber": { "type": "integer" },
+        "player": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["from", "to", "san", "fen", "moveNumber", "player", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/admins/{userId}": {
+      "schema": {
+        "title": "Admin Record",
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" },
+          "addedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "description": "Whitelist of administrator users."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile and coin balance."
+    },
+    "/transactions/{txnId}": {
+      "schema": "Transaction",
+      "description": "Log of all coin transactions."
+    },
+    "/store_items/{itemId}": {
+      "schema": "StoreItem",
+      "description": "List of items in the Bounty Store."
+    },
+    "/matchmaking_queue/{uid}": {
+      "schema": "QueueEntry",
+      "description": "Active players waiting for a match."
+    },
+    "/matches/{matchId}": {
+      "schema": "Match",
+      "description": "Game state."
+    },
+    "/matches/{matchId}/moves/{moveId}": {
+      "schema": "Move",
+      "description": "Move history for a specific match."
+    },
+    "/tournaments/{tournamentId}": {
+      "schema": "Tournament",
+      "description": "Tournament metadata."
+    },
+    "/tournaments/{tournamentId}/participants/{userId}": {
+      "schema": "TournamentParticipant",
+      "description": "Participants list and standings."
+    }
+  }
+}
